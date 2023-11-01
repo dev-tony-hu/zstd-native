@@ -1,4 +1,4 @@
-name: NuGet Manual Publish
+name: Build Wrapper Package
 
 # workflow_dispatch is used to manually invoke the GH action
 on: [workflow_dispatch]
