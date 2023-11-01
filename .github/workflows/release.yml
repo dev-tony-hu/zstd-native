@@ -26,14 +26,19 @@ jobs:
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: ${{ env.dotnet_core_version }}
+      
+      - name: Install dependencies
+        run: |
+            sudo apt install unzip -y
+            sudo apt-get install xmlstarlet -y
 
       # Run dotnet pack to create the nupkg file for the project and store in artifacts folder
-      - name: Build linux native
+      - name: Build native
         run: |
+            packageVersion=$(cat VERSION.txt)
+            packageName="zstd-${packageVersion}.tar.gz"
             pwd
             mkdir -p bin
-            packageVersion="1.5.5"
-            packageName="zstd-${packageVersion}.tar.gz"
             wget https://github.com/facebook/zstd/releases/download/v${packageVersion}/${packageName}
             tar -xvf ${packageName}
             cd "zstd-${packageVersion}"
@@ -42,41 +47,13 @@ jobs:
             dir .
             dir ./lib
             mv ./lib/libzstd.so ../bin/libzstd.so
-        shell: bash
-            
-      # Run dotnet pack to create the nupkg file for the project and store in artifacts folder
-      - name: Build windows native
-        run: |
-            pwd
-            mkdir -p bin
-            sudo apt install unzip -y
-            packageVersion="1.5.5"
-            packageName="zstd-v${packageVersion}-win64.zip"
-            wget https://github.com/facebook/zstd/releases/download/v${packageVersion}/${packageName}
-            unzip ${packageName}
+            cd ..
+            windowsPackageName="zstd-v${packageVersion}-win64.zip"
+            wget https://github.com/facebook/zstd/releases/download/v${packageVersion}/${windowsPackageName}
+            unzip ${windowsPackageName}
             mv ./zstd-v${packageVersion}-win64/dll/libzstd.dll ./bin/libzstd.dll
-        shell: bash
+            dotnet pack src/zstd-native -o ./nupkgs --configuration ${{ env.config }}  -p:NuspecFile=zstd-native.nuspec
+            find . -name '*.nupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} --skip-duplicate \;
+            find . -name '*.snupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} \;
 
-      - name: Modify Version
-        run: |
-            pwd
-            sudo apt-get install xmlstarlet -y
-            PackageVersion=$(cat VERSION.txt)
-            xmlstarlet ed -N x="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd" -u "/x:package/x:metadata/x:version" --value $PackageVersion ./src/zstdwrapper/Zstd.Wrapper.nuspec
-            echo "xml data"
-            cat ./src/zstdwrapper/Zstd.Wrapper.nuspec
-  
-
-      # Run dotnet pack to create the nupkg file for the project and store in artifacts folder
-      - name: Run Pack
-        run: dotnet pack src/zstdwrapper -o ./nupkgs --configuration ${{ env.config }}  -p:NuspecFile=Zstd.Wrapper.nuspec
-        shell: bash
-
-      # Find all the created nupkg files and publish it to NuGet, we use the wonderful swiss-army knife capability `find -exec` to find and then execute an action on it.
-      # NUGET_DEPLOY_KEY is the NuGet API key stored in the repo GH action secrets
-      # If you also publish symbol packages, find the snupkg files and publish it to NuGet
-      - name: Publish to NuGet
-        run: |
-          #find . -name '*.nupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} --skip-duplicate \;
-          #find . -name '*.snupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} \;
         shell: bash

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+	<metadata>
+		<id>Zstd.Native</id>
+		<version>1.5.5</version>
+		<authors>Tony Hu</authors>
+		<owners>Tony Hu</owners>
+		<description>zstd native binary.</description>
+		<repository type="github">https://github.com/dev-tony-hu/zstd-native</repository>
+		<tags>zstd compression</tags>
+		<license type="expression">MIT</license>
+		<readme>docs/README.md</readme>
+		<dependencies>
+			<group targetFramework="netstandard2.1" />
+		</dependencies>
+	</metadata>
+	<files>
+		<file src="../../bin/libzstd.dll" target="runtimes/win-x64/native"/>
+        <file src="../../bin/libzstd.so" target="runtimes/win-x64/native"/>
+		<file src="../../README.md" target="docs/" />
+		<file src="../../licenses/*" target="licenses/" />
+	</files>
+</package>
