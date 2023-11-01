@@ -48,7 +48,7 @@ jobs:
             echo "open lib"
             dir ./lib
             mv ./lib/libzstd.so ../bin/libzstd.so
-            cd ..
+                        cd ..
             windowsPackageName="zstd-v${packageVersion}-win64.zip"
             wget https://github.com/facebook/zstd/releases/download/v${packageVersion}/${windowsPackageName}
             unzip ${windowsPackageName}
