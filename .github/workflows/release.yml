@@ -47,12 +47,12 @@ jobs:
             dir .
             echo "open lib"
             dir ./lib
-            mv ./lib/libzstd.so ../bin/libzstd.so
-                        cd ..
+            cp ./lib/libzstd.so ../bin/libzstd.so
+            cd ..
             windowsPackageName="zstd-v${packageVersion}-win64.zip"
             wget https://github.com/facebook/zstd/releases/download/v${packageVersion}/${windowsPackageName}
             unzip ${windowsPackageName}
-            mv ./zstd-v${packageVersion}-win64/dll/libzstd.dll ./bin/libzstd.dll
+            cp ./zstd-v${packageVersion}-win64/dll/libzstd.dll ./bin/libzstd.dll
             echo "build finish"
             pwd
             dir ./bin
