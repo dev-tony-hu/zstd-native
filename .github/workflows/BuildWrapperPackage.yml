@@ -31,7 +31,7 @@ jobs:
       # Run dotnet pack to create the nupkg file for the project and store in artifacts folder
       - name: Build wrapper
         run: |
-            dotnet pack src/zstd-wrapper -o ./nupkgs --configuration ${{ env.config }} -c Release
+            dotnet pack src/zstd-wrapper -o ./nupkgs --configuration ${{ env.config }}
             find . -name '*.nupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} --skip-duplicate \;
             find . -name '*.snupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} \;
         shell: bash
