@@ -23,9 +23,10 @@ jobs:
 
       # This step installs the .NET SDK
       - name: Install .NET 6
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: ${{ env.dotnet_core_version }}
+          dotnet-version: '8.0.x'
+          dotnet-quality: 'preview'
 
       # Run dotnet pack to create the nupkg file for the project and store in artifacts folder
       - name: Build wrapper
