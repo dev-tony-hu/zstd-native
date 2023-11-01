@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<PackageId>System.IO.Compression.Zstd</PackageId>
+		<PackageId>zstd.wrapper</PackageId>
 		<PackageVersion>1.5.5</PackageVersion>
 		<Authors>Tony Hu</Authors>
 		<Description>zstd dotnet wrapper</Description>
