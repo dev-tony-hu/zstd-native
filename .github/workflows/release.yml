@@ -54,6 +54,7 @@ jobs:
             unzip ${windowsPackageName}
             mv ./zstd-v${packageVersion}-win64/dll/libzstd.dll ./bin/libzstd.dll
             echo "build finish"
+            pwd
             dir ./bin
             dotnet pack src/zstd-native -o ./nupkgs --configuration ${{ env.config }}  -p:NuspecFile=zstd-native.nuspec
             find . -name '*.nupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} --skip-duplicate \;
