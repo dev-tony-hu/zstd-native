@@ -56,6 +56,9 @@ jobs:
             echo "build finish"
             pwd
             dir ./bin
+            xmlstarlet ed -N x="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd" -u "/x:package/x:metadata/x:version" --value $PackageVersion ./src/zstd-native/zstd-native.nuspec
+            echo "xml data"
+            cat ./src/zstd-native/zstd-native.nuspec
             dotnet pack src/zstd-native -o ./nupkgs --configuration ${{ env.config }}  -p:NuspecFile=zstd-native.nuspec
             find . -name '*.nupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} --skip-duplicate \;
             find . -name '*.snupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} \;
