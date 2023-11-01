@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<PackageId>System.IO.Compression.Zstd</PackageId>
+		<PackageVersion>1.5.5</PackageVersion>
+		<Authors>Tony Hu</Authors>
+		<Description>zstd dotnet wrapper</Description>
+		<PackageProjectUrl>https://github.com/dev-tony-hu/zstd-native</PackageProjectUrl>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<TargetFrameworks>net6.0;net8.0</TargetFrameworks>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<RootNamespace>System.IO.Compression.Zstd</RootNamespace>
+		<AssemblyName>System.IO.Compression.Zstd</AssemblyName>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+	</PropertyGroup>
+	<ItemGroup>
+	  <PackageReference Include="zstd.native" Version="1.5.5" />
+	</ItemGroup>
+</Project>

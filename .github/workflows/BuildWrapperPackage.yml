@@ -1,0 +1,36 @@
+name: NuGet Manual Publish
+
+# workflow_dispatch is used to manually invoke the GH action
+on: [workflow_dispatch]
+
+env:
+  # Setting the required env flags
+  config: Release
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  dotnet_core_version: 6.0.x
+
+jobs:
+  publish_job:
+    # CI running on linux
+    runs-on: ubuntu-latest
+
+    steps:
+      # This step clones the source code to the CI build machine
+      - name: Checkout code
+        uses: actions/checkout@v2
+       
+
+      # This step installs the .NET SDK
+      - name: Install .NET 6
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{ env.dotnet_core_version }}
+
+      # Run dotnet pack to create the nupkg file for the project and store in artifacts folder
+      - name: Build wrapper
+        run: |
+            dotnet pack src/zstd-native -o ./nupkgs --configuration ${{ env.config }}
+            find . -name '*.nupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} --skip-duplicate \;
+            find . -name '*.snupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} \;
+        shell: bash
