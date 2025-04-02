@@ -15,7 +15,6 @@
 	<ItemGroup>
 		<None Include="../../bin/libzstd.dll" Pack="true" PackagePath="runtimes/win-x64/native"/>
 		<None Include="../../bin/libzstd.so" Pack="true" PackagePath="runtimes/linux-x64/native"/>
-		<None Include="../../README.md" Pack="true" PackagePath="docs"/>
 		<None Include="../../licenses/*" Pack="true" PackagePath="licenses/"/>
 	</ItemGroup>
 </Project>
