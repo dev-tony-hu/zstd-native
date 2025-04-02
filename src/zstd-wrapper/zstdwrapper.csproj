@@ -15,6 +15,6 @@
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 	</PropertyGroup>
 	<ItemGroup>
-	  <PackageReference Include="zstd.native" Version="1.5.7.1" />
+		<ProjectReference Include="../zstd-native/zstd-native.csproj" />
 	</ItemGroup>
 </Project>
