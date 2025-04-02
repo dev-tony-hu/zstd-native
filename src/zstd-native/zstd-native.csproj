@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<PackageId>zstd.native</PackageId>
-		<PackageVersion>1.5.7</PackageVersion>
+		<PackageVersion>1.5.7.1</PackageVersion>
 		<Authors>Tony Hu</Authors>
 		<Description>zstd native binary</Description>
 		<PackageProjectUrl>https://github.com/dev-tony-hu/zstd-native</PackageProjectUrl>
