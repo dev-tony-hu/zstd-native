@@ -56,7 +56,7 @@ jobs:
             echo "build finish"
             pwd
             dir ./bin
-            dotnet pack src/zstd-native -o ./nupkgs --configuration ${{ env.config }}  -p:NuspecFile=zstd-native.nuspec
+            dotnet pack src/zstd-native -o ./nupkgs --configuration ${{ env.config }}
             find . -name '*.nupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} --skip-duplicate \;
             find . -name '*.snupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} \;
 
