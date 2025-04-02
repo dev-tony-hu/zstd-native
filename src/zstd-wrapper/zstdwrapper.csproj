@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<PackageId>zstd.wrapper</PackageId>
-		<PackageVersion>1.5.5</PackageVersion>
+		<PackageVersion>1.5.7</PackageVersion>
 		<Authors>Tony Hu</Authors>
 		<Description>zstd dotnet wrapper</Description>
 		<PackageProjectUrl>https://github.com/dev-tony-hu/zstd-native</PackageProjectUrl>
