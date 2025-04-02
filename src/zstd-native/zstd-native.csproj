@@ -1,7 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
-  <PropertyGroup>
-    <TargetFrameworks>net6.0;net8.0</TargetFrameworks>
-  </PropertyGroup>
-
+	<PropertyGroup>
+		<PackageId>zstd.native</PackageId>
+		<PackageVersion>1.5.7</PackageVersion>
+		<Authors>Tony Hu</Authors>
+		<Description>zstd native binary</Description>
+		<PackageProjectUrl>https://github.com/dev-tony-hu/zstd-native</PackageProjectUrl>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+	</PropertyGroup>
+	<ItemGroup>
+		<None Include="./../bin/libzstd.dll" Pack="true" PackagePath="runtimes/win-x64/native"/>
+		<None Include="./../bin/libzstd.so" Pack="true" PackagePath="runtimes/linux-x64/native"/>
+		<None Include="../../README.md" Pack="true" PackagePath="docs"/>
+		<None Include="../../licenses/*" Pack="true" PackagePath="licenses/"/>
+	</ItemGroup>
 </Project>
