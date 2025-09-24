@@ -13,7 +13,4 @@
 		<AssemblyName>System.IO.Compression.Zstd</AssemblyName>
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 	</PropertyGroup>
-	<ItemGroup>
-		<ProjectReference Include="../zstd-native/zstd-native.csproj" />
-	</ItemGroup>
 </Project>

@@ -1,0 +1,262 @@
+name: Build Native Package Matrix
+
+on:
+  workflow_dispatch:
+    inputs:
+      wrapperRevision:
+        description: "Wrapper revision (4th segment) e.g. 1 for base VERSION 1.5.7 -> wrapper 1.5.7.1"
+        required: false
+      publishToNuget:
+        description: "Set to true to push wrapper package to NuGet (only effective on tags)"
+        required: false
+        default: "false"
+  push:
+    tags:
+      - "v*"
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  CONFIG: Release
+  DOTNET_VERSION: 8.0.x
+
+jobs:
+  build-native:
+    name: Build zstd on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read VERSION
+        id: version
+        shell: bash
+        run: echo "value=$(cat VERSION.txt)" >> $GITHUB_OUTPUT
+
+      - name: Cache zstd source
+        id: cache-src
+        uses: actions/cache@v4
+        with:
+          path: zstd-src
+          key: zstd-src-${{ steps.version.outputs.value }}
+
+      - name: Download zstd source & checksums
+        if: steps.cache-src.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          ver=${{ steps.version.outputs.value }}
+          tarball="zstd-${ver}.tar.gz"
+          url="https://github.com/facebook/zstd/releases/download/v${ver}/${tarball}"
+          curl -L -o "$tarball" "$url"
+          # 下载官方 checksum（github release 中通常命名为 SHA256SUMS 或类似，这里采用常见模式）
+          sums_url="https://github.com/facebook/zstd/releases/download/v${ver}/SHA256SUMS"
+          if curl -Lf -o SHA256SUMS "$sums_url"; then
+            echo "Downloaded SHA256SUMS"
+            grep " $tarball" SHA256SUMS > TARGET_SUM || { echo "Checksum entry not found"; exit 1; }
+            if command -v sha256sum >/dev/null 2>&1; then
+              sha256sum -c TARGET_SUM
+            else
+              # macOS fallback
+              cut -d ' ' -f1 TARGET_SUM > expected_sha
+              actual=$(shasum -a 256 "$tarball" | awk '{print $1}')
+              expected=$(cat expected_sha)
+              if [ "$actual" != "$expected" ]; then
+                echo "Checksum mismatch: expected $expected got $actual" >&2; exit 1
+              fi
+              echo "Checksum OK (shasum)"
+            fi
+          else
+            echo "No SHA256SUMS file found for version $ver; skipping checksum verification" >&2
+          fi
+          mkdir zstd-src
+          tar -xzf "$tarball" -C zstd-src --strip-components=1
+
+      - name: Set SRC_DIR env
+        shell: bash
+        run: echo "SRC_DIR=$(pwd)/zstd-src" >> $GITHUB_ENV
+
+      - name: Build (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          cd "$SRC_DIR"
+          make -j"$(nproc)"
+          mkdir -p build_out/linux-x64
+          cp lib/libzstd.so build_out/linux-x64/
+          echo "OUT_DIR=$(pwd)/build_out" >> $GITHUB_ENV
+
+      - name: Build (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          cd $Env:SRC_DIR
+          # 使用 CMake 的官方构建脚本（源码中有 build/cmake）
+          cmake -S build/cmake -B build_win -DZSTD_BUILD_SHARED=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build_win --config Release -j 4
+          New-Item -ItemType Directory -Path build_out/win-x64 | Out-Null
+          Copy-Item build_win/bin/libzstd.dll build_out/win-x64/
+          echo "OUT_DIR=$PWD/build_out" >> $Env:GITHUB_ENV
+
+      - name: Build (macOS)
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          cd "$SRC_DIR"
+          make -j"$(sysctl -n hw.ncpu)"
+          mkdir -p build_out/osx-x64
+          # zstd 默认生成 lib/libzstd.dylib
+          cp lib/libzstd.dylib build_out/osx-x64/
+          echo "OUT_DIR=$(pwd)/build_out" >> $GITHUB_ENV
+
+      - name: Upload native artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.os }}
+          path: ${{ env.OUT_DIR }}/*/*
+
+  pack-and-publish:
+    name: Pack & Publish wrapper
+    needs: build-native
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: native-binaries
+
+      - name: Arrange runtime binaries
+        run: |
+          mkdir -p bin
+          # 兼容 artifact 名（GitHub 会用 job 名字），尝试两种常见命名
+          if [ -d native-binaries/native-ubuntu-latest ]; then
+            cp native-binaries/native-ubuntu-latest/linux-x64/libzstd.so bin/ || true
+          else
+            cp native-binaries/ubuntu-latest/linux-x64/libzstd.so bin/
+          fi
+          if [ -d native-binaries/native-windows-latest ]; then
+            cp native-binaries/native-windows-latest/win-x64/libzstd.dll bin/ || true
+          else
+            cp native-binaries/windows-latest/win-x64/libzstd.dll bin/
+          fi
+          # macOS dylib
+          if [ -d native-binaries/native-macos-latest ]; then
+            cp native-binaries/native-macos-latest/osx-x64/libzstd.dylib bin/ || true
+          else
+            if [ -d native-binaries/macos-latest ]; then
+              cp native-binaries/macos-latest/osx-x64/libzstd.dylib bin/ || true
+            fi
+          fi
+          ls -R bin
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: (Optional) Sync PackageVersion from VERSION.txt
+        run: |
+          base=$(cat VERSION.txt | tr -d '\r')
+          # Validate base is X.Y.Z
+          if ! echo "$base" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "VERSION.txt must be semantic version with 3 segments (X.Y.Z). Got: $base" >&2
+            exit 1
+          fi
+
+          # Determine wrapper revision (4th segment)
+          revInput='${{ github.event.inputs.wrapperRevision }}'
+          wrapperVersion=""
+
+          if [ -n "${revInput}" ]; then
+            if ! echo "$revInput" | grep -Eq '^[0-9]+$'; then
+              echo "wrapperRevision input must be numeric. Got: $revInput" >&2; exit 1
+            fi
+            wrapperVersion="${base}.${revInput}"
+          else
+            # If tag push like refs/tags/v1.5.7.2 -> derive 4-seg
+            ref='${{ github.ref }}'
+            if echo "$ref" | grep -Eq '^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+              tagVer=${ref#refs/tags/v}
+              # Ensure first 3 segments match base
+              prefix=$(echo "$tagVer" | cut -d. -f1-3)
+              if [ "$prefix" != "$base" ]; then
+                echo "Tag base $prefix does not match VERSION.txt $base" >&2; exit 1
+              fi
+              wrapperVersion=$tagVer
+            elif echo "$ref" | grep -Eq '^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$'; then
+              # 3-part tag means revision .0
+              tagBase=${ref#refs/tags/v}
+              if [ "$tagBase" != "$base" ]; then
+                echo "Tag base $tagBase does not match VERSION.txt $base" >&2; exit 1
+              fi
+              wrapperVersion="${base}.0"
+            else
+              # Not a tag and no input -> default .0
+              wrapperVersion="${base}.0"
+            fi
+          fi
+
+          echo "Base (native) version: $base"
+          echo "Wrapper (NuGet) version: $wrapperVersion"
+
+          # Update native csproj to base 3-part, wrapper csproj to 4-part
+          files=(src/zstd-native/zstd-native.csproj src/zstd-wrapper/zstdwrapper.csproj)
+          for f in "${files[@]}"; do
+            if [ ! -f "$f" ]; then continue; fi
+            targetVer=$base
+            if echo "$f" | grep -q 'zstdwrapper'; then
+              targetVer=$wrapperVersion
+            fi
+            echo "Updating $f -> $targetVer"
+            sed -E "s#<PackageVersion>[^<]+</PackageVersion>#<PackageVersion>${targetVer}</PackageVersion>#" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+            grep -n "<PackageVersion>" "$f"
+          done
+          echo "Final versions:"; grep -R "<PackageVersion>" -n src/zstd-*/*.csproj
+          echo "BASE_VERSION=$base" >> $GITHUB_ENV
+          echo "WRAPPER_VERSION=$wrapperVersion" >> $GITHUB_ENV
+
+      - name: Pack wrapper
+        run: dotnet pack src/zstd-wrapper -c $CONFIG -o nupkgs
+
+      - name: Publish to NuGet (wrapper)
+        if: startsWith(github.ref, 'refs/tags/v') && (github.event.inputs.publishToNuget == 'true')
+        run: |
+          echo "publishToNuget input=true; pushing NuGet package(s)";
+          find nupkgs -name 'zstd.wrapper*.nupkg' -exec dotnet nuget push {} -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_DEPLOY_KEY }} --skip-duplicate \;
+
+      - name: Download upstream source tarball for release attachment
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          base=${BASE_VERSION}
+          tarball="zstd-${base}.tar.gz"
+          url="https://github.com/facebook/zstd/releases/download/v${base}/${tarball}"
+          echo "Downloading upstream source $url"
+          curl -L -o "$tarball" "$url" || { echo "Download failed"; exit 1; }
+          ls -l "$tarball"
+          echo "TARBALL_PATH=$tarball" >> $GITHUB_ENV
+
+      - name: Create GitHub Release (if not exists) & upload assets
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: zstd.wrapper ${{ env.WRAPPER_VERSION }}
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            nupkgs/*.nupkg
+            ${{ env.TARBALL_PATH }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload packed nupkgs (always)
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkgs
+          path: nupkgs/*.nupkg
