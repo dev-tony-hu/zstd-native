@@ -19,6 +19,8 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
   CONFIG: Release
   DOTNET_VERSION: 8.0.x
+  STRICT_CHECKSUM: false
+  EXCLUDE_TESTS: true
 
 jobs:
   build-native:
@@ -52,15 +54,38 @@ jobs:
           tarball="zstd-${ver}.tar.gz"
           url="https://github.com/facebook/zstd/releases/download/v${ver}/${tarball}"
           curl -L -o "$tarball" "$url"
-          # 下载官方 checksum（github release 中通常命名为 SHA256SUMS 或类似，这里采用常见模式）
-          sums_url="https://github.com/facebook/zstd/releases/download/v${ver}/SHA256SUMS"
-          if curl -Lf -o SHA256SUMS "$sums_url"; then
-            echo "Downloaded SHA256SUMS"
-            grep " $tarball" SHA256SUMS > TARGET_SUM || { echo "Checksum entry not found"; exit 1; }
+          # 尝试多种 checksum 文件名称
+          candidates=(SHA256SUMS SHA256SUMS.txt checksums.txt)
+          found_checksum=false
+          for c in "${candidates[@]}"; do
+            sums_url="https://github.com/facebook/zstd/releases/download/v${ver}/${c}"
+            if curl -Lf -o "$c" "$sums_url"; then
+              echo "Downloaded checksum file: $c"; found_checksum=true; checksum_file="$c"; break
+            fi
+          done
+          # 额外尝试与 tarball 同名的 .sha256
+          if [ "$found_checksum" = false ]; then
+            single_url="https://github.com/facebook/zstd/releases/download/v${ver}/${tarball}.sha256"
+            if curl -Lf -o single.sha256 "$single_url"; then
+              echo "Downloaded single-file checksum"
+              # 一般格式：<hash>  <filename>
+              if grep -q "$tarball" single.sha256; then
+                checksum_file=single.sha256; found_checksum=true
+              else
+                # 如果只有纯 hash
+                if [ $(wc -w < single.sha256) -eq 1 ]; then
+                  echo "$(cat single.sha256)  $tarball" > single.sha256.norm
+                  checksum_file=single.sha256.norm; found_checksum=true
+                fi
+              fi
+            fi
+          fi
+          if [ "$found_checksum" = true ]; then
+            echo "Using checksum file: $checksum_file"
+            grep " $tarball" "$checksum_file" > TARGET_SUM || { echo "Checksum entry not found in $checksum_file"; exit 1; }
             if command -v sha256sum >/dev/null 2>&1; then
               sha256sum -c TARGET_SUM
             else
-              # macOS fallback
               cut -d ' ' -f1 TARGET_SUM > expected_sha
               actual=$(shasum -a 256 "$tarball" | awk '{print $1}')
               expected=$(cat expected_sha)
@@ -70,10 +95,22 @@ jobs:
               echo "Checksum OK (shasum)"
             fi
           else
-            echo "No SHA256SUMS file found for version $ver; skipping checksum verification" >&2
+            echo "No checksum file found for version $ver" >&2
+            if [ "${STRICT_CHECKSUM}" = "true" ]; then
+              echo "STRICT_CHECKSUM=true -> failing build" >&2; exit 1
+            else
+              echo "Proceeding without checksum verification"
+            fi
           fi
+
           mkdir zstd-src
-          tar -xzf "$tarball" -C zstd-src --strip-components=1
+          if [ "${EXCLUDE_TESTS}" = "true" ]; then
+            echo "Extracting tarball excluding tests directory to avoid symlink issues"
+            # --wildcards for portability; exclude tests*
+            tar -xzf "$tarball" --exclude='*/tests/*' -C zstd-src --strip-components=1
+          else
+            tar -xzf "$tarball" -C zstd-src --strip-components=1
+          fi
 
       - name: Set SRC_DIR env
         shell: bash
